@@ -11,7 +11,7 @@ public partial class ToolBar : ContentView
 
 	public enum ePages { None, Battery, Graph, Settings };
 
-	private static Color _bgColor = App.Current?.RequestedTheme == AppTheme.Dark ? Colors.Black : Colors.White;
+	//private static Color _bgColor = App.Current?.RequestedTheme == AppTheme.Dark ? Colors.Black : Colors.White;
 	private ePages _page = ePages.None;
 	private StackLayout _slMenu;
 
@@ -29,7 +29,7 @@ public partial class ToolBar : ContentView
 	public ToolBar()
 	{
 		BindingContext = this;
-		BackgroundColor = _bgColor;
+		//BackgroundColor = _bgColor;
 	}
 
 	protected override void OnSizeAllocated(double width, double height)
@@ -62,7 +62,7 @@ public partial class ToolBar : ContentView
 		_slMenu = new StackLayout()
 		{
 			Orientation = orientation,
-			BackgroundColor = _bgColor,
+			//BackgroundColor = _bgColor,
 			Margin = new Thickness(0, 0, 0, 0),
 			Spacing = 0,
 		};

@@ -21,4 +21,12 @@
 			ContentTemplate="{DataTemplate pages:GraphPage}"
 			Route="GraphRoot" />
 	</FlyoutItem>
+
+	<FlyoutItem Route="Settings">
+		<ShellContent
+			x:Name="pagSettings"
+			Shell.NavBarIsVisible="false"
+			ContentTemplate="{DataTemplate pages:SettingsPage}"
+			Route="SettingsRoot" />
+	</FlyoutItem>
 </Shell>

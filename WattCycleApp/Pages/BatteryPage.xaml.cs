@@ -10,7 +10,6 @@ namespace WattCycleApp.Pages;
 
 public partial class BatteryPage : ContentPage
 {
-	private const string BatteryCountPreferenceKey = "battery-count";
 	private const string RememberedBatteriesPreferenceKey = "remembered-batteries";
 	private static readonly TimeSpan BatteryGap = TimeSpan.FromSeconds(10);
 	private static readonly Color NeutralStateColor = Colors.Gray;
@@ -18,6 +17,7 @@ public partial class BatteryPage : ContentPage
 	private static readonly Color LowStateColor = GetResourceColor("Low", Colors.Green);
 	private static readonly Color HighStateColor = GetResourceColor("High", Colors.Red);
 	private CancellationTokenSource? _loopCts;
+	private Task? _batteryLoopTask;
 	private int _knownBatteryCount;
 	private BatteryHistoryStore HistoryStore { get; } = BatteryHistoryStore.Default;
 
@@ -27,12 +27,9 @@ public partial class BatteryPage : ContentPage
 	{
 		InitializeComponent();
 		BindingContext = this;
-		BatteriesEntry.TextChanged += OnBatteryCountChanged;
 
 		horToolBar.Create(ePages.Battery, StackOrientation.Horizontal);
 		verToolBar.Create(ePages.Battery, StackOrientation.Vertical);
-
-		StartBatteries();
 	}
 
 	protected override void OnSizeAllocated(double width, double height)
@@ -59,24 +56,42 @@ public partial class BatteryPage : ContentPage
 		base.OnSizeAllocated(width, height);
 	}
 
-
-	protected override async void OnAppearing()
+	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		//LoadRememberedRows();
-		//await StartAsync();
+		StartBatteries();
 	}
 
-	protected override void OnDisappearing()
+	protected void StartBatteries()
 	{
-		//_loopCts?.Cancel();
-		base.OnDisappearing();
+		if (_batteryLoopTask is { IsCompleted: false })
+		{
+			return;
+		}
+
+		LoadRememberedRows();
+		_batteryLoopTask = StartAsync();
+		_ = ObserveBatteryLoopAsync(_batteryLoopTask);
 	}
 
-	protected async void StartBatteries()
-	{    
-		LoadRememberedRows();
-		await StartAsync();
+	private async Task ObserveBatteryLoopAsync(Task batteryLoopTask)
+	{
+		try
+		{
+			await batteryLoopTask;
+		}
+		catch (Exception ex)
+		{
+			await MainThread.InvokeOnMainThreadAsync(() =>
+			{
+				if (Batteries.Count == 0)
+				{
+					Batteries.Add(new BatteryRow(0, "Battery monitor"));
+				}
+
+				Batteries[0].Status = $"{ex.GetType().Name}: {ex.Message}";
+			});
+		}
 	}
 
 	private async Task StartAsync()
@@ -90,6 +105,10 @@ public partial class BatteryPage : ContentPage
 		{
 			return;
 		}
+
+#if ANDROID
+		await EnsureAndroidBackgroundPermissionAsync();
+#endif
 
 		_loopCts = new CancellationTokenSource();
 		try
@@ -311,7 +330,7 @@ public partial class BatteryPage : ContentPage
 
 	private void LoadRememberedRows()
 	{
-		var count = ReadInt(BatteriesEntry, 4, 1, 16);
+		var count = BatteryMonitorSettings.BatteryLimit;
 		EnsureRememberedBatteryCount(count);
 		var remembered = Preferences.Get(RememberedBatteriesPreferenceKey, string.Empty);
 		if (string.IsNullOrWhiteSpace(remembered))
@@ -340,10 +359,10 @@ public partial class BatteryPage : ContentPage
 			.Where(row => !string.IsNullOrWhiteSpace(row.Name))
 			.OrderBy(row => row.Name, StringComparer.OrdinalIgnoreCase)
 			.ThenBy(row => row.BluetoothAddress)
-			.Take(ReadInt(BatteriesEntry, 4, 1, 16))
+			.Take(BatteryMonitorSettings.BatteryLimit)
 			.Select(row => $"{row.BluetoothAddress}|{row.Name}");
 		Preferences.Set(RememberedBatteriesPreferenceKey, string.Join('\n', remembered));
-		Preferences.Set(BatteryCountPreferenceKey, ReadInt(BatteriesEntry, 4, 1, 16));
+		Preferences.Set(BatteryMonitorSettings.BatteryCountPreferenceKey, BatteryMonitorSettings.BatteryLimit);
 	}
 
 	private void EnsureRememberedBatteryCount(int batteryCount)
@@ -353,7 +372,7 @@ public partial class BatteryPage : ContentPage
 			return;
 		}
 
-		var storedCount = Preferences.Get(BatteryCountPreferenceKey, batteryCount);
+		var storedCount = Preferences.Get(BatteryMonitorSettings.BatteryCountPreferenceKey, batteryCount);
 		_knownBatteryCount = batteryCount;
 		if (storedCount == batteryCount)
 		{
@@ -361,14 +380,8 @@ public partial class BatteryPage : ContentPage
 		}
 
 		Preferences.Remove(RememberedBatteriesPreferenceKey);
-		Preferences.Set(BatteryCountPreferenceKey, batteryCount);
+		Preferences.Set(BatteryMonitorSettings.BatteryCountPreferenceKey, batteryCount);
 		Batteries.Clear();
-	}
-
-	private void OnBatteryCountChanged(object? sender, TextChangedEventArgs e)
-	{
-		var newCount = ReadInt(BatteriesEntry, 4, 1, 16);
-		EnsureRememberedBatteryCount(newCount);
 	}
 
 	private void SortBatteryRows()
@@ -402,32 +415,60 @@ public partial class BatteryPage : ContentPage
 #endif
 	}
 
+#if ANDROID
+	private static async Task EnsureAndroidBackgroundPermissionAsync()
+	{
+		var context = Android.App.Application.Context;
+		var packageName = context.PackageName;
+		if (string.IsNullOrWhiteSpace(packageName))
+		{
+			return;
+		}
+
+		if (OperatingSystem.IsAndroidVersionAtLeast(23))
+		{
+			var powerManager = (Android.OS.PowerManager?)context.GetSystemService(Android.Content.Context.PowerService);
+			if (powerManager?.IsIgnoringBatteryOptimizations(packageName) == true)
+			{
+				return;
+			}
+
+			try
+			{
+				var intent = new Android.Content.Intent(Android.Provider.Settings.ActionRequestIgnoreBatteryOptimizations);
+				intent.SetData(Android.Net.Uri.Parse($"package:{packageName}"));
+				StartAndroidPermissionActivity(intent);
+			}
+			catch (Android.Content.ActivityNotFoundException)
+			{
+				var intent = new Android.Content.Intent(Android.Provider.Settings.ActionIgnoreBatteryOptimizationSettings);
+				StartAndroidPermissionActivity(intent);
+			}
+		}
+
+		await Task.CompletedTask;
+	}
+
+	private static void StartAndroidPermissionActivity(Android.Content.Intent intent)
+	{
+		var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
+		if (activity is not null)
+		{
+			activity.StartActivity(intent);
+			return;
+		}
+
+		intent.AddFlags(Android.Content.ActivityFlags.NewTask);
+		Android.App.Application.Context.StartActivity(intent);
+	}
+#endif
+
 	private MonitorSettings ReadSettings() =>
 		new(
-			ReadInt(BatteriesEntry, 4, 1, 16),
-			TimeSpan.FromMinutes(ReadDouble(ScanEntry, 2, 0.1, 60)),
-			TimeSpan.FromMinutes(ReadDouble(LoopEntry, 5, 0.1, 1440)),
-			TimeSpan.FromSeconds(ReadDouble(TimeoutEntry, 30, 1, 600)));
-
-	private static int ReadInt(Entry entry, int defaultValue, int min, int max)
-	{
-		if (!int.TryParse(entry.Text, out var value))
-		{
-			value = defaultValue;
-		}
-
-		return Math.Clamp(value, min, max);
-	}
-
-	private static double ReadDouble(Entry entry, double defaultValue, double min, double max)
-	{
-		if (!double.TryParse(entry.Text, out var value))
-		{
-			value = defaultValue;
-		}
-
-		return Math.Clamp(value, min, max);
-	}
+			BatteryMonitorSettings.BatteryLimit,
+			TimeSpan.FromMinutes(BatteryMonitorSettings.ScanMinutes),
+			TimeSpan.FromMinutes(BatteryMonitorSettings.LoopMinutes),
+			TimeSpan.FromSeconds(BatteryMonitorSettings.TimeoutSeconds));
 
 	private static Color GetResourceColor(string key, Color fallback)
 	{

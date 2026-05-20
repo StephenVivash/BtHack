@@ -28,48 +28,9 @@
 
 		<Grid
 			Padding="12"
-			RowDefinitions="Auto,*"
-			RowSpacing="10">
-			<Grid
-				ColumnDefinitions="*,*,*,*"
-				ColumnSpacing="8"
-				RowDefinitions="Auto,Auto">
-				<Label Grid.Column="0" Text="Batteries" HorizontalTextAlignment="Center" FontSize="12" />
-				<Label Grid.Column="1" Text="Scan" HorizontalTextAlignment="Center" FontSize="12" />
-				<Label Grid.Column="2" Text="Loop" HorizontalTextAlignment="Center" FontSize="12" />
-				<Label Grid.Column="3" Text="Timeout" HorizontalTextAlignment="Center" FontSize="12" />
-
-				<Entry
-					x:Name="BatteriesEntry"
-					Grid.Row="1"
-					Text="4"
-					Keyboard="Numeric"
-					HorizontalTextAlignment="Center" />
-				<Entry
-					x:Name="ScanEntry"
-					Grid.Row="1"
-					Grid.Column="1"
-					Text="2"
-					Keyboard="Numeric"
-					HorizontalTextAlignment="Center" />
-				<Entry
-					x:Name="LoopEntry"
-					Grid.Row="1"
-					Grid.Column="2"
-					Text="5"
-					Keyboard="Numeric"
-					HorizontalTextAlignment="Center" />
-				<Entry
-					x:Name="TimeoutEntry"
-					Grid.Row="1"
-					Grid.Column="3"
-					Text="30"
-					Keyboard="Numeric"
-					HorizontalTextAlignment="Center" />
-				</Grid>
+			RowDefinitions="*">
 
 			<CollectionView
-				Grid.Row="1"
 				ItemsSource="{Binding Batteries}"
 				SelectionMode="None">
 				<CollectionView.ItemTemplate>
