@@ -194,7 +194,7 @@ public partial class GraphPage : ContentPage
 			IsVisibleAtLegend = false,
 			Fill = null,
 			GeometrySize = geometrySize,
-			LineSmoothness = 1,
+			//LineSmoothness = 1,
 			Stroke = new SolidColorPaint(color, strokeWidth),
 			GeometryStroke = new SolidColorPaint(color, strokeWidth),
 			GeometryFill = new SolidColorPaint(color)
