@@ -12,8 +12,8 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.10" />
 
 		<PackageReference Include="Microsoft.SemanticKernel" Version="1.78.0" />
-		<PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="10.8.0" />
-		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.8.0" />
+		<PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="10.8.1" />
+		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.8.1" />
 
 		<PackageReference Include="System.Memory.Data" Version="10.0.10" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
